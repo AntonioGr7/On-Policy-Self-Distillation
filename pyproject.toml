@@ -42,3 +42,15 @@ include = ["sdft*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+# Pin torch to the CUDA 12.8 build. The default PyPI wheel is a cu130 (CUDA 13)
+# build that needs a newer NVIDIA driver than the A100 host provides (driver
+# 570.x → max CUDA 12.8). cu128 wheels match. If a host's driver supports a
+# different CUDA version, change the index URL suffix (cu126 / cu124 / cu121).
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
