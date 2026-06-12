@@ -1,0 +1,41 @@
+# Stack test: validate the full 40GB training stack on a real 7B model
+# WITHOUT needing real data. Uses synthetic `smoke` data and ~20 steps to
+# confirm everything loads, fits 40GB memory, and trains end-to-end:
+#   7B student + nf4-quantized frozen teacher + Liger fused JSD
+#   + 8-bit Adam + gradient checkpointing + on-policy generation.
+# The quantized teacher is static so EMA sync is disabled (incompatible with
+# frozen quantized weights). This is the 80g stacktest's 40GB sibling.
+run_name: sdft-7b-40g-stacktest
+
+model:
+  family: qwen
+  name: Qwen/Qwen2.5-7B-Instruct
+  dtype: bfloat16
+  attn_implementation: sdpa     # built into torch; no flash-attn compile
+  separate_teacher: true
+  teacher_quantization: nf4     # ~14GB -> ~4GB; required to fit two copies in 40GB
+
+data:
+  dataset_name: smoke           # synthetic, no download/prep
+  max_prompt_length: 256
+  max_completion_length: 64
+
+sdft:
+  alpha: 0.0
+  gen_temperature: 1.0
+  lmbda: 1.0
+  sync_ref_model: false         # quantized teacher has frozen weights; EMA sync not possible
+  use_liger_jsd: true
+  output_dir: outputs/7b-40g-stacktest
+  learning_rate: 5.0e-6
+  max_steps: 20
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 4
+  warmup_ratio: 0.1
+  lr_scheduler_type: cosine
+  bf16: true
+  gradient_checkpointing: true
+  optim: paged_adamw_8bit       # pages optimizer states to CPU when GPU is tight
+  logging_steps: 1
+  save_steps: 1000              # don't checkpoint during the test
+  report_to: none

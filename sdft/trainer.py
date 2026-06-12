@@ -263,11 +263,14 @@ class SDFTTrainer(Trainer):
         # flatten to (N, H) over valid completion tokens only
         flat_mask = c_mask.reshape(-1).bool()
         H = student_hidden.shape[-1]
-        s_flat = student_hidden.reshape(-1, H)[flat_mask]
-        t_flat = teacher_hidden.reshape(-1, H)[flat_mask].to(s_flat.dtype)
-
         s_w = self.accelerator.unwrap_model(model).get_output_embeddings().weight
-        t_w = self.teacher_model.get_output_embeddings().weight.to(s_flat.dtype)
+        # Anchor all tensors to the weight dtype (bfloat16 in bf16 training).
+        # Hidden states can silently come back as float32 when gradient
+        # checkpointing recomputes outside the autocast context.
+        w_dtype = s_w.dtype
+        s_flat = student_hidden.reshape(-1, H)[flat_mask].to(w_dtype)
+        t_flat = teacher_hidden.reshape(-1, H)[flat_mask].to(w_dtype)
+        t_w = self.teacher_model.get_output_embeddings().weight.to(w_dtype)
         return fused_linear_jsd_loss(
             s_flat, s_w, t_flat, t_w, alpha=cfg.alpha, temperature=cfg.temperature
         )
