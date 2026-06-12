@@ -41,13 +41,24 @@ def test_fused_matches_dense_symmetric_jsd():
 
 @requires_cuda
 @requires_liger
-def test_fused_endpoints_are_finite():
+def test_fused_matches_dense_at_endpoints():
+    """Validate the alpha -> jsd_beta mapping at the asymmetric endpoints
+    (forward KL at 0, reverse KL at 1). If Liger's beta convention were swapped
+    relative to ours, these would fail while the symmetric case still passed."""
     torch.manual_seed(1)
     device = "cuda"
-    N, H, V = 16, 32, 128
-    s_hidden = torch.randn(N, H, device=device)
-    t_hidden = torch.randn(N, H, device=device)
-    W = torch.randn(V, H, device=device)
+    N, H, V = 24, 48, 200
+    s_hidden = torch.randn(N, H, device=device, dtype=torch.float32)
+    t_hidden = torch.randn(N, H, device=device, dtype=torch.float32)
+    W = torch.randn(V, H, device=device, dtype=torch.float32)
+
+    s_logits = (s_hidden @ W.t()).unsqueeze(0)
+    t_logits = (t_hidden @ W.t()).unsqueeze(0)
+
     for alpha in (0.0, 1.0):
-        loss = fused_linear_jsd_loss(s_hidden, W, t_hidden, W, alpha=alpha, temperature=1.0)
-        assert torch.isfinite(loss)
+        dense = generalized_jsd_loss(s_logits, t_logits, alpha=alpha, temperature=1.0)
+        fused = fused_linear_jsd_loss(s_hidden, W, t_hidden, W, alpha=alpha, temperature=1.0)
+        assert torch.isfinite(fused)
+        assert torch.allclose(dense.to(fused.dtype), fused, atol=1e-2, rtol=1e-2), (
+            f"alpha={alpha} dense={float(dense):.5f} fused={float(fused):.5f}"
+        )
