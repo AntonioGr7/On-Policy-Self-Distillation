@@ -1,0 +1,19 @@
+# Core runtime — installs on CPU/dev box and on the A100.
+# Pinned-loosely so the same file works across the 4GB dev box and the A100.
+torch>=2.4
+transformers>=4.45
+datasets>=3.0
+accelerate>=1.0
+pyyaml>=6.0
+numpy>=1.26
+tqdm>=4.66
+
+# --- A100 training extras (install with: uv pip install -e ".[train]") ---
+# deepspeed>=0.15        # ZeRO-2/3 + CPU optimizer offload
+# bitsandbytes>=0.44     # 8-bit Adam (adamw_bnb_8bit) + quantized teacher (nf4/int8)
+# liger-kernel>=0.4      # fused-linear JSD (no full-vocab logits) + fused kernels
+# wandb>=0.18            # experiment logging
+
+# --- Optional throughput / eval extras ---
+# vllm>=0.6              # fast on-policy generation (.[vllm])
+# lm-eval>=0.4.5         # forgetting benchmarks (.[eval])

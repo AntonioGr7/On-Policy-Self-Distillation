@@ -1,0 +1,42 @@
+# Full fine-tuning of Qwen2.5-7B on a single 80GB A100.
+# Student + frozen teacher (2x 7B bf16 ~= 28GB) + 8-bit Adam (~14GB) + grad
+# checkpointing. Fits 80GB; on 40GB use ZeRO-3 + CPU offload (slow but works).
+run_name: sdft-qwen2.5-7b
+
+model:
+  family: qwen
+  name: Qwen/Qwen2.5-7B-Instruct
+  dtype: bfloat16
+  attn_implementation: flash_attention_2
+  separate_teacher: true
+  # teacher_quantization: nf4   # ~14GB -> ~4GB; note: disables EMA sync
+
+data:
+  dataset_name: science
+  max_prompt_length: 1024
+  max_completion_length: 1024
+
+sdft:
+  alpha: 0.0
+  gen_temperature: 1.0
+  lmbda: 1.0
+  sync_ref_model: true
+  ref_model_mixup_alpha: 0.6
+  ref_model_sync_steps: 512
+  output_dir: outputs/qwen2.5-7b-science
+  learning_rate: 5.0e-6
+  num_train_epochs: 2
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 32
+  warmup_ratio: 0.1
+  lr_scheduler_type: cosine
+  bf16: true
+  gradient_checkpointing: true
+  optim: adamw_bnb_8bit          # or paged_adamw_8bit to absorb OOM spikes
+  use_liger_jsd: true            # fused-linear JSD: avoids 152K-vocab logits
+  # loss_top_k: 128              # optional: KL over teacher's top-128 only
+  generation_backend: transformers   # set to "vllm" for fast on-policy gen
+  logging_steps: 10
+  save_steps: 200
+  report_to: wandb
+  # deepspeed: configs/ds_zero3_offload.json   # required for 7B full-FT on 40GB

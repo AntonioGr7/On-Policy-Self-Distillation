@@ -1,0 +1,17 @@
+# Gemma 2/3 family defaults. Gemma's chat template rejects a system role, so the
+# demonstration is folded into the first user turn (handled in sdft.models).
+model:
+  family: gemma
+  name: google/gemma-2-2b-it
+  dtype: bfloat16
+  separate_teacher: true
+  teacher_demo_template: |
+    A high-quality reference answer for the request below is provided for your
+    guidance. Produce a response of the same quality and correctness, in your own
+    words.
+
+    Reference answer:
+    {demonstration}
+
+    ---
+    Now respond to this request:

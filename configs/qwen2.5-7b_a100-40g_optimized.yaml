@@ -1,0 +1,41 @@
+# Full fine-tuning of Qwen2.5-7B on a single *40GB* A100 — only feasible with
+# the memory optimizations stacked:
+#   * nf4-quantized frozen teacher  (~14GB -> ~4GB)
+#   * Liger fused-linear JSD         (no 152K-vocab logits materialized)
+#   * 8-bit Adam + gradient checkpointing + FlashAttention-2
+# Trade-off: the quantized teacher is static, so EMA teacher-sync is disabled.
+run_name: sdft-qwen2.5-7b-40g
+
+model:
+  family: qwen
+  name: Qwen/Qwen2.5-7B-Instruct
+  dtype: bfloat16
+  attn_implementation: flash_attention_2
+  separate_teacher: true
+  teacher_quantization: nf4
+
+data:
+  dataset_name: science
+  max_prompt_length: 1024
+  max_completion_length: 768
+
+sdft:
+  alpha: 0.0
+  gen_temperature: 1.0
+  lmbda: 1.0
+  sync_ref_model: false          # auto-disabled anyway with a quantized teacher
+  output_dir: outputs/qwen2.5-7b-science-40g
+  learning_rate: 5.0e-6
+  num_train_epochs: 2
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 32
+  warmup_ratio: 0.1
+  lr_scheduler_type: cosine
+  bf16: true
+  gradient_checkpointing: true
+  optim: paged_adamw_8bit
+  use_liger_jsd: true
+  loss_top_k: 256
+  logging_steps: 10
+  save_steps: 200
+  report_to: wandb

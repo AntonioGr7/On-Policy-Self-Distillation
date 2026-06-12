@@ -1,0 +1,17 @@
+# Mistral family defaults. Mistral's chat template has no system role, so the
+# demonstration is folded into the first user turn (handled in sdft.models).
+model:
+  family: mistral
+  name: mistralai/Mistral-7B-Instruct-v0.3
+  dtype: bfloat16
+  separate_teacher: true
+  teacher_demo_template: |
+    A high-quality reference answer for the request below is provided for your
+    guidance. Produce a response of the same quality and correctness, in your own
+    words.
+
+    Reference answer:
+    {demonstration}
+
+    ---
+    Now respond to this request:

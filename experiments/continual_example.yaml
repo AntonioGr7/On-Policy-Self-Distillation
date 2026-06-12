@@ -1,0 +1,22 @@
+# Example continual-learning sequence. Trains a single model through two tasks
+# in order, evaluating new-task accuracy and general-knowledge retention after
+# each stage. Swap `base` to a larger config (e.g. qwen2.5-3b_a100-40g.yaml) and
+# point `heldout` at real held-out files to run the actual study.
+base: configs/smoke_qwen0.5b.yaml
+
+forgetting:
+  tasks: [arc_easy]      # add hellaswag, mmlu, gsm8k for the real study
+  limit: 100
+
+stages:
+  - name: science
+    overrides:
+      data: { dataset_name: smoke }            # replace with: science
+      sdft: { output_dir: outputs/cl/science, max_steps: 4 }
+    heldout: data/science_data/test.jsonl       # created during data prep
+
+  - name: tooluse
+    overrides:
+      data: { dataset_name: smoke }            # replace with: tooluse
+      sdft: { output_dir: outputs/cl/tooluse, max_steps: 4 }
+    heldout: data/tooluse_data/test.jsonl

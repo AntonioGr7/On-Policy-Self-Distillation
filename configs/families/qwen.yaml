@@ -1,0 +1,15 @@
+# Qwen2.5 family defaults. Merged in as defaults under `model` when a run
+# config sets `model.family: qwen`. Override anything in the run config.
+model:
+  family: qwen
+  name: Qwen/Qwen2.5-0.5B-Instruct
+  dtype: bfloat16
+  separate_teacher: true
+  # Qwen supports a system role, so the demonstration goes into a system turn.
+  teacher_demo_template: |
+    You are answering a user request. A high-quality reference answer is provided
+    below for your guidance. Produce a response of the same quality and correctness,
+    in your own words.
+
+    Reference answer:
+    {demonstration}

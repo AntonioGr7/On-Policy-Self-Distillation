@@ -1,0 +1,32 @@
+# Smoke config: runs end-to-end on the 4GB dev box (or CPU). Tiny model, tiny
+# batch, transformers generation, no bf16 / no DeepSpeed. Used by CI and for a
+# quick "does the loop run and the loss go down" sanity check.
+run_name: sdft-smoke-qwen0.5b
+
+model:
+  family: qwen
+  name: Qwen/Qwen2.5-0.5B-Instruct
+  dtype: float32          # CPU/old-GPU friendly; builder also disables bf16
+  separate_teacher: true
+
+data:
+  dataset_name: smoke     # synthetic, no download
+  max_prompt_length: 128
+  max_completion_length: 32
+  max_samples: 8
+
+sdft:
+  alpha: 0.0              # forward KL (paper default)
+  gen_temperature: 1.0
+  lmbda: 1.0             # fully on-policy
+  output_dir: outputs/smoke_qwen0.5b
+  learning_rate: 1.0e-5
+  max_steps: 4
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 1
+  bf16: false
+  gradient_checkpointing: false
+  optim: adamw_torch
+  logging_steps: 1
+  save_steps: 1000
+  report_to: none

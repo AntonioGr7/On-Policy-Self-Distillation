@@ -1,0 +1,44 @@
+[project]
+name = "sdft"
+version = "0.1.0"
+description = "On-Policy Self-Distillation Fine-Tuning (SDFT): a standardized, cross-model continual-learning framework"
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Antonio Grimaldi" }]
+
+dependencies = [
+    "torch>=2.4",
+    "transformers>=4.45",
+    "datasets>=3.0",
+    "accelerate>=1.0",
+    "pyyaml>=6.0",
+    "numpy>=1.26",
+    "tqdm>=4.66",
+]
+
+[project.optional-dependencies]
+# Heavy / CUDA-only extras. Install on the A100 box, not the dev box.
+train = [
+    "deepspeed>=0.15",
+    "bitsandbytes>=0.44",
+    "liger-kernel>=0.4",
+    "wandb>=0.18",
+]
+vllm = ["vllm>=0.6"]
+eval = ["lm-eval>=0.4.5"]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+sdft-train = "sdft.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["sdft*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

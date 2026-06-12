@@ -1,0 +1,13 @@
+# Llama 3.x family defaults.
+model:
+  family: llama
+  name: meta-llama/Llama-3.2-1B-Instruct
+  dtype: bfloat16
+  separate_teacher: true
+  teacher_demo_template: |
+    You are answering a user request. A high-quality reference answer is provided
+    below for your guidance. Produce a response of the same quality and correctness,
+    in your own words.
+
+    Reference answer:
+    {demonstration}
