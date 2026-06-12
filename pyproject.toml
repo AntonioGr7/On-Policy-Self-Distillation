@@ -25,7 +25,7 @@ train = [
     "liger-kernel>=0.4",
     "wandb>=0.18",
 ]
-vllm = ["vllm>=0.6"]
+vllm = ["vllm>=0.6", "torchvision", "torchaudio"]
 eval = ["lm-eval>=0.4.5"]
 dev = ["pytest>=8.0"]
 
@@ -58,3 +58,5 @@ explicit = true
 
 [tool.uv.sources]
 torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }
+torchaudio = { index = "pytorch-cu128" }

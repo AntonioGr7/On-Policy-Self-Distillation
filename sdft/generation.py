@@ -87,23 +87,58 @@ class VLLMGenerator:
     is fully tested.
     """
 
-    def __init__(self, model_name, gpu_memory_utilization=0.3, enable_sleep_mode=True):
+    def __init__(
+        self,
+        model_name,
+        gpu_memory_utilization=0.3,
+        enable_sleep_mode=True,
+        attention_backend="TRITON_ATTN",
+    ):
+        import os
+
         from vllm import LLM, SamplingParams  # noqa: F401  (import-time check)
 
+        # vllm defaults to fork() for its EngineCore subprocess, which fails when
+        # CUDA is already initialised in the parent (e.g. a training step ran
+        # first). Force spawn so the child starts with a clean CUDA state.
+        os.environ.setdefault("VLLM_WORKER_MULTIPROC_METHOD", "spawn")
+        # flashinfer-cubin from PyPI is compiled for CUDA 13; on CUDA 12.x hosts
+        # the driver rejects it with cudaErrorInsufficientDriver. Fall back to
+        # the PyTorch-native sampler which works on any supported CUDA version.
+        os.environ.setdefault("VLLM_USE_FLASHINFER_SAMPLER", "0")
+        # Run the v1 EngineCore in-process (no MP subprocess). Colocate weight
+        # sync needs direct access to the model living on this process's GPU; the
+        # default multiprocessing engine hides it behind an IPC client.
+        os.environ.setdefault("VLLM_ENABLE_V1_MULTIPROCESSING", "0")
+
+        # The bundled vllm-flash-attn binary is built against a newer CUDA
+        # runtime than CUDA 12.x drivers support, so the auto-selected FLASH_ATTN
+        # backend dies with "CUDA driver version is insufficient for CUDA runtime
+        # version" during cudagraph capture. TRITON_ATTN is JIT-compiled locally
+        # and works on any supported CUDA. Pass attention_backend=None to restore
+        # vLLM's automatic selection.
         self.model_name = model_name
-        self.llm = LLM(
+        llm_kwargs = dict(
             model=model_name,
             gpu_memory_utilization=gpu_memory_utilization,
             enable_sleep_mode=enable_sleep_mode,
             dtype="bfloat16",
         )
+        if attention_backend is not None:
+            llm_kwargs["attention_backend"] = attention_backend
+        self.llm = LLM(**llm_kwargs)
         self._SamplingParams = SamplingParams
 
     def sync_weights(self, model) -> None:
         """Load the current training weights into the vLLM engine."""
         state = model.state_dict()
-        runner = self.llm.llm_engine.model_executor.driver_worker.model_runner
-        runner.model.load_weights((name, p) for name, p in state.items())
+
+        def _load(vllm_model):
+            vllm_model.load_weights((name, p) for name, p in state.items())
+
+        # apply_model runs the closure on the model inside the worker; with the
+        # in-process engine the state_dict tensors are already on this GPU.
+        self.llm.apply_model(_load)
 
     @torch.no_grad()
     def generate(
