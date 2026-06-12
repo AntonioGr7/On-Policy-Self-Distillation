@@ -42,6 +42,10 @@ include = ["sdft*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+filterwarnings = [
+    # torch.jit.script_method is deprecated inside torch/bitsandbytes internals — not actionable from here
+    "ignore:`torch.jit.script_method` is deprecated:DeprecationWarning",
+]
 
 # Pin torch to the CUDA 12.8 build. The default PyPI wheel is a cu130 (CUDA 13)
 # build that needs a newer NVIDIA driver than the A100 host provides (driver

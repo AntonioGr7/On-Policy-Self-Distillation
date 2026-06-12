@@ -133,7 +133,7 @@ def load_student_and_teacher(cfg: ModelConfig):
 
     compute_dtype = _torch_dtype(cfg.dtype)
     load_kwargs: dict = {
-        "torch_dtype": compute_dtype,
+        "dtype": compute_dtype,
         "trust_remote_code": cfg.trust_remote_code,
     }
     if cfg.attn_implementation:
@@ -144,6 +144,14 @@ def load_student_and_teacher(cfg: ModelConfig):
         tokenizer.pad_token = tokenizer.eos_token
 
     student = AutoModelForCausalLM.from_pretrained(cfg.name, **load_kwargs)
+    # Pre-align special token IDs so the Trainer's align_special_tokens() sees no
+    # mismatch and stays silent (Qwen2.5 has bos_token_id=151643 in the model
+    # config but the tokenizer reports bos_token_id=None).
+    student.config.bos_token_id = tokenizer.bos_token_id
+    student.config.pad_token_id = tokenizer.pad_token_id
+    if getattr(student, "generation_config", None) is not None:
+        student.generation_config.bos_token_id = tokenizer.bos_token_id
+        student.generation_config.pad_token_id = tokenizer.pad_token_id
 
     teacher = None
     if cfg.separate_teacher:

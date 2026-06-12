@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 
 import torch
 from transformers import TrainingArguments
@@ -14,9 +15,18 @@ from sdft.models import load_student_and_teacher
 from sdft.trainer import SDFTCollator, SDFTTrainer
 
 
-def _training_arguments(run: RunConfig) -> TrainingArguments:
+def _training_arguments(run: RunConfig, dataset_size: int = 0) -> TrainingArguments:
     s = run.sdft
     cuda = torch.cuda.is_available()
+    # warmup_ratio is deprecated in transformers v5.2; compute warmup_steps instead.
+    if s.max_steps > 0:
+        total_steps = s.max_steps
+    else:
+        steps_per_epoch = math.ceil(
+            dataset_size / (s.per_device_train_batch_size * s.gradient_accumulation_steps)
+        )
+        total_steps = int(steps_per_epoch * s.num_train_epochs)
+    warmup_steps = math.ceil(s.warmup_ratio * total_steps)
     return TrainingArguments(
         output_dir=s.output_dir,
         run_name=run.run_name,
@@ -25,7 +35,7 @@ def _training_arguments(run: RunConfig) -> TrainingArguments:
         max_steps=s.max_steps,
         per_device_train_batch_size=s.per_device_train_batch_size,
         gradient_accumulation_steps=s.gradient_accumulation_steps,
-        warmup_ratio=s.warmup_ratio,
+        warmup_steps=warmup_steps,
         lr_scheduler_type=s.lr_scheduler_type,
         weight_decay=s.weight_decay,
         max_grad_norm=s.max_grad_norm,
@@ -52,7 +62,7 @@ def build_trainer(run: RunConfig) -> SDFTTrainer:
         max_prompt_length=run.data.max_prompt_length,
         max_completion_length=run.data.max_completion_length,
     )
-    args = _training_arguments(run)
+    args = _training_arguments(run, len(dataset))
 
     # A quantized teacher has frozen, non-updatable weights -> EMA sync is
     # impossible. Disable it (with a warning) rather than fail mid-run.
