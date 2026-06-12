@@ -62,3 +62,24 @@ def test_fused_matches_dense_at_endpoints():
         assert torch.allclose(dense.to(fused.dtype), fused, atol=1e-2, rtol=1e-2), (
             f"alpha={alpha} dense={float(dense):.5f} fused={float(fused):.5f}"
         )
+
+
+@requires_cuda
+@requires_liger
+def test_interior_alpha_divergence_is_expected():
+    """Pin the KNOWN behavior: for interior alpha the dense (TRL) and fused
+    (GKD/Liger) generalized-JSD conventions differ. This is not a bug — they
+    agree only at alpha in {0, 0.5, 1}. If this ever starts matching, someone
+    changed a convention and the docs in losses.py need updating."""
+    torch.manual_seed(2)
+    device = "cuda"
+    N, H, V = 24, 48, 200
+    s_hidden = torch.randn(N, H, device=device, dtype=torch.float32)
+    t_hidden = torch.randn(N, H, device=device, dtype=torch.float32)
+    W = torch.randn(V, H, device=device, dtype=torch.float32)
+    s_logits = (s_hidden @ W.t()).unsqueeze(0)
+    t_logits = (t_hidden @ W.t()).unsqueeze(0)
+
+    dense = generalized_jsd_loss(s_logits, t_logits, alpha=0.25, temperature=1.0)
+    fused = fused_linear_jsd_loss(s_hidden, W, t_hidden, W, alpha=0.25, temperature=1.0)
+    assert not torch.allclose(dense.to(fused.dtype), fused, atol=1e-2, rtol=1e-2)

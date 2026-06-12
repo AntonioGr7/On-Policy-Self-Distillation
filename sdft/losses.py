@@ -121,14 +121,21 @@ def fused_linear_jsd_loss(
     materialized — the key memory win for large-vocab distillation.
 
     The caller must guarantee Liger is installed (see :func:`liger_available`).
-    ``alpha`` maps directly to Liger's ``jsd_beta`` (both follow the GKD
-    convention: 0 -> forward KL(student||teacher), 1 -> reverse KL), matching
-    :func:`generalized_jsd_loss`. ``shift_labels=None`` counts all tokens (the
-    caller has already masked to completion tokens).
+
+    Convention note: our ``alpha`` (TRL-style: 0 -> forward KL(student||teacher),
+    1 -> reverse KL) is the *mirror* of Liger's ``jsd_beta`` (GKD-style), so we
+    pass ``jsd_beta = 1 - alpha``. This makes the Liger path match
+    :func:`generalized_jsd_loss` exactly at the canonical points alpha in
+    {0, 0.5, 1} (forward KL / symmetric JSD / reverse KL). For *interior* alpha
+    the two use different generalized-JSD weightings and will differ slightly;
+    SDFT's default (alpha=0) and the usual operating points are unaffected.
+
+    ``shift_labels=None`` counts all tokens (the caller has already masked to
+    completion tokens).
     """
     from liger_kernel.transformers.fused_linear_jsd import LigerFusedLinearJSD
 
-    loss_fn = LigerFusedLinearJSD(jsd_beta=float(alpha), temperature=float(temperature))
+    loss_fn = LigerFusedLinearJSD(jsd_beta=float(1.0 - alpha), temperature=float(temperature))
     return loss_fn(
         student_hidden,
         student_lm_head_weight,
