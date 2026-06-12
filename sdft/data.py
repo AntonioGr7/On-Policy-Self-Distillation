@@ -29,61 +29,50 @@ DEMO_KEY = "demonstration"
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
-# --------------------------------------------------------------------------- #
-# Synthetic smoke dataset — deterministic, no network, runs on the 4GB box.
-# --------------------------------------------------------------------------- #
-_SMOKE_FACTS = [
-    ("What is the capital of France?", "The capital of France is Paris."),
-    ("Convert 10 kilometers to miles.", "10 kilometers is about 6.21 miles."),
-    ("Name the largest planet in the solar system.", "The largest planet is Jupiter."),
-    ("What gas do plants absorb during photosynthesis?", "Plants absorb carbon dioxide."),
-    ("Who wrote the play 'Hamlet'?", "William Shakespeare wrote 'Hamlet'."),
-    ("What is 12 multiplied by 8?", "12 multiplied by 8 is 96."),
-    ("What is the boiling point of water at sea level in Celsius?", "It is 100 degrees Celsius."),
-    ("Translate 'good morning' into Spanish.", "'Good morning' is 'buenos días' in Spanish."),
-]
+# Bundled smoke dataset, stored as JSONL in the same production format you'll
+# use for real data — so `smoke` exercises the exact `json` loader path.
+_SMOKE_TRAIN = _REPO_ROOT / "data" / "smoke" / "train.jsonl"
+
+
+def _normalize_example(ex: dict) -> dict:
+    """Map a raw JSONL row to the SDFT schema {prompt_messages, demonstration}.
+
+    Accepts either ``prompt_messages`` (chat turns) or a plain ``prompt`` string,
+    and the gold answer under ``demonstration`` / ``completion`` / ``response``.
+    """
+    if ex.get(PROMPT_KEY):
+        messages = ex[PROMPT_KEY]
+    elif ex.get("prompt"):
+        messages = [{"role": "user", "content": ex["prompt"]}]
+    else:
+        raise ValueError("rows need a 'prompt' or 'prompt_messages' field")
+    demo = ex.get(DEMO_KEY) or ex.get("completion") or ex.get("response")
+    if demo is None:
+        raise ValueError("rows need a 'demonstration'/'completion'/'response' field")
+    return {PROMPT_KEY: messages, DEMO_KEY: demo}
+
+
+def _load_jsonl(path: str | Path):
+    """Load a .jsonl file and normalize it to the SDFT schema. Offline-safe."""
+    from datasets import load_dataset
+
+    raw = load_dataset("json", data_files=str(path), split="train")
+    keep = (PROMPT_KEY, DEMO_KEY)
+    return raw.map(_normalize_example, remove_columns=[c for c in raw.column_names if c not in keep])
 
 
 def _smoke_dataset(cfg: DataConfig):
-    from datasets import Dataset
-
-    rows = []
-    # Repeat the tiny set so there are enough steps to exercise the loop.
-    for i in range(8):
-        q, a = _SMOKE_FACTS[i % len(_SMOKE_FACTS)]
-        rows.append(
-            {
-                PROMPT_KEY: [{"role": "user", "content": q}],
-                DEMO_KEY: a,
-            }
-        )
-    ds = Dataset.from_list(rows)
-    return ds
+    """Tiny bundled dataset for smoke/stack tests. No download, no network."""
+    if not _SMOKE_TRAIN.exists():
+        raise FileNotFoundError(f"bundled smoke data missing at {_SMOKE_TRAIN}")
+    return _load_jsonl(_SMOKE_TRAIN)
 
 
-# --------------------------------------------------------------------------- #
-# Local JSONL loader.
-# --------------------------------------------------------------------------- #
 def _json_dataset(cfg: DataConfig):
-    from datasets import load_dataset
-
+    """Production loader: a local .jsonl pointed at by data.data_path."""
     if not cfg.data_path:
         raise ValueError("dataset_name='json' requires data.data_path to a .jsonl file")
-    raw = load_dataset("json", data_files=cfg.data_path, split="train")
-
-    def _norm(ex):
-        if PROMPT_KEY in ex and ex[PROMPT_KEY]:
-            messages = ex[PROMPT_KEY]
-        elif "prompt" in ex:
-            messages = [{"role": "user", "content": ex["prompt"]}]
-        else:
-            raise ValueError("json rows need a 'prompt' or 'prompt_messages' field")
-        demo = ex.get(DEMO_KEY) or ex.get("completion") or ex.get("response")
-        if demo is None:
-            raise ValueError("json rows need a 'completion'/'response'/'demonstration' field")
-        return {PROMPT_KEY: messages, DEMO_KEY: demo}
-
-    return raw.map(_norm, remove_columns=[c for c in raw.column_names if c not in (PROMPT_KEY, DEMO_KEY)])
+    return _load_jsonl(cfg.data_path)
 
 
 # --------------------------------------------------------------------------- #

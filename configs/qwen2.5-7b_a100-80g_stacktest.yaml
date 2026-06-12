@@ -1,0 +1,42 @@
+# Stack test: validate the full best-case 80GB training stack on a real 7B model
+# WITHOUT needing real data. Uses synthetic `smoke` data and ~20 steps just to
+# confirm everything loads, fits 80GB memory, and trains end-to-end:
+#   7B student + frozen bf16 teacher + EMA sync + Liger fused JSD
+#   + 8-bit Adam + gradient checkpointing + on-policy generation.
+# Short completions keep generation snappy (grad-checkpointing forces use_cache=
+# off, so generation is slow per token — that's why the real runs want vLLM).
+run_name: sdft-7b-80g-stacktest
+
+model:
+  family: qwen
+  name: Qwen/Qwen2.5-7B-Instruct
+  dtype: bfloat16
+  attn_implementation: sdpa     # built into torch; no flash-attn compile
+  separate_teacher: true
+
+data:
+  dataset_name: smoke           # synthetic, no download/prep
+  max_prompt_length: 256
+  max_completion_length: 64
+
+sdft:
+  alpha: 0.0
+  gen_temperature: 1.0
+  lmbda: 1.0
+  sync_ref_model: true
+  ref_model_mixup_alpha: 0.6
+  ref_model_sync_steps: 5       # low so the EMA path actually fires in 20 steps
+  use_liger_jsd: true           # needs the jsd_beta=1-alpha fix applied
+  output_dir: outputs/7b-stacktest
+  learning_rate: 5.0e-6
+  max_steps: 20
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 4
+  warmup_ratio: 0.1
+  lr_scheduler_type: cosine
+  bf16: true
+  gradient_checkpointing: true
+  optim: adamw_bnb_8bit
+  logging_steps: 1
+  save_steps: 1000              # don't checkpoint during the test
+  report_to: none

@@ -1,0 +1,8 @@
+{"prompt_messages": [{"role": "user", "content": "What is the capital of France?"}], "demonstration": "The capital of France is Paris."}
+{"prompt_messages": [{"role": "user", "content": "Convert 10 kilometers to miles."}], "demonstration": "10 kilometers is about 6.21 miles."}
+{"prompt_messages": [{"role": "user", "content": "Name the largest planet in the solar system."}], "demonstration": "The largest planet is Jupiter."}
+{"prompt_messages": [{"role": "user", "content": "What gas do plants absorb during photosynthesis?"}], "demonstration": "Plants absorb carbon dioxide."}
+{"prompt_messages": [{"role": "user", "content": "Who wrote the play 'Hamlet'?"}], "demonstration": "William Shakespeare wrote 'Hamlet'."}
+{"prompt_messages": [{"role": "user", "content": "What is 12 multiplied by 8?"}], "demonstration": "12 multiplied by 8 is 96."}
+{"prompt_messages": [{"role": "user", "content": "What is the boiling point of water at sea level in Celsius?"}], "demonstration": "It is 100 degrees Celsius."}
+{"prompt_messages": [{"role": "user", "content": "Translate 'good morning' into Spanish."}], "demonstration": "'Good morning' is 'buenos días' in Spanish."}
